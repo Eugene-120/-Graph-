@@ -4,6 +4,8 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <iterator>
+#include <fstream>
 using namespace std;
 
 // Структура данных для хранения ребра Graph
@@ -167,6 +169,13 @@ public:
         //adjList[src].push_back(make_pair(dest, weight));
     }
 
+    /*auto insert_or_assign_node(Type1 tmp1, Type1 tmp2, Type2 tmp3) {
+        list <pair<Type1, Type2>> tmp4 = { make_pair(tmp2, tmp3) };
+        if (adjList.insert({ tmp1,tmp4 }).second)
+            
+        return (adjList.insert({ tmp1, tmp4 }));
+    }*/
+
     auto insert_edge(Type1 key_from, Type1 key_to, Type2 weight) {
         bool found = true;
         try {
@@ -174,20 +183,168 @@ public:
                 found = false;
                 exception error("mismatched sizes");
                 throw error;
-            }            
+            }
         }
         catch (exception& err) {
             cout << err.what() << "\n";
         }
-
         list <pair<Type1, Type2>> tmp = { make_pair(key_to, weight) };
-        adjList[key_from].push_back(make_pair(key_to, weight));
-        
-        
-        return (make_pair(adjList.end(), found));
-        
+
+        int col = 0;
+        for (auto v = adjList[key_from].begin(); v != adjList[key_from].end(); ++v) {
+            if ((*v).first == key_to )
+                col++;
+        }
+        if (col == 0) {
+            adjList[key_from].push_back(make_pair(key_to, weight));
+            return (make_pair(adjList.end(), found));
+        }
+        else {
+            return(make_pair(adjList.end(), false));
+        }
+    
     }
 
+    auto insert_or_assign_edge(Type1 key_from, Type1 key_to, Type2 weight) {
+        bool found = true;
+        try {
+            if (!adjList.count(key_from) || !adjList.count(key_to)) {
+                found = false;
+                exception error("mismatched sizes");
+                throw error;
+            }
+        }
+        catch (exception& err) {
+            cout << err.what() << "\n";
+        } 
+        list <pair<Type1, Type2>> tmp = { make_pair(key_to, weight) };
+
+        int col = 0;
+        for (auto v = adjList[key_from].begin(); v != adjList[key_from].end(); ++v) {
+            if ((*v).first == key_to /* && (*v).second == weight*/)
+                col++;
+        }
+        if (col == 0) {
+            adjList[key_from].push_back(make_pair(key_to, weight));
+            return (make_pair(adjList.end(), found));
+        }
+        else {
+            for (auto v = adjList[key_from].begin(); v != adjList[key_from].end(); ++v) {
+                if ((*v).first == key_to /* && (*v).second == weight*/)
+                    (*v).second = weight;
+            }
+            return(make_pair(adjList.end(), true));
+        }
+    }
+
+    void clear_edges() {
+        for (auto i = adjList.begin(); i != adjList.end(); i++)
+        {
+            for (auto v = i->second.begin(); v != i->second.end(); ++v) {
+                auto begin = i->second.begin(); // указатель на первый элемент
+                auto end = i->second.end();       // указатель на последний элемент
+                i->second.erase(++begin, end);
+                (*v).first = i->first;
+                (*v).second = 0;
+            }
+        }
+    }
+
+    bool erase_edges_go_from(Type1 key) {
+       if (!adjList.count(key))
+            return false;
+        for (auto v = adjList[key].begin(); v != adjList[key].end(); ++v) {
+            auto begin = adjList[key].begin(); // указатель на первый элемент
+            auto end = adjList[key].end();       // указатель на последний элемент
+            adjList[key].erase(++begin, end);
+            (*v).first = key;
+            (*v).second = 0;
+        }
+        return true;
+    }
+
+    bool erase_edges_go_to(Type1 key) {
+        if (!adjList.count(key))
+            return false;
+
+        for (auto i = adjList.begin(); i != adjList.end(); i++)
+        {
+            for (auto v = i->second.begin(); v != i->second.end(); v++) {
+                auto begin = i->second.begin(); // указатель на первый элемент
+                if ((*v).first == key) {
+                    if (i->second.size() != 1)
+                    {
+                        ///////////////////////////////////////////////////////////////////////////////i->second.erase(v);
+                        (*v).first = i->first;
+                        (*v).second = 0;
+                    }
+                    else
+                    {
+                        (*v).first = i->first;
+                        (*v).second = 0;
+                    }
+                }
+            }
+        }            
+        return true;
+    }
+
+    bool erase_node(Type1 key) {
+        if (!adjList.count(key))
+            return false;
+        adjList.erase(key);
+        for (auto i = adjList.begin(); i != adjList.end(); i++)
+        {
+            for (auto v = i->second.begin(); v != i->second.end(); v++) {
+                auto begin = i->second.begin(); // указатель на первый элемент
+                if ((*v).first == key) {
+                    if (i->second.size() != 1)
+                    {
+                        ///////////////////////////////////////////////////////////////////////////////i->second.erase(v);
+                        (*v).first = i->first;
+                        (*v).second = 0;
+                    }
+                    else
+                    {
+                        (*v).first = i->first;
+                        (*v).second = 0;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool save_to_file(string path) {
+        ofstream out;          // поток для записи
+        out.open(path); // окрываем файл для записи
+        if (out.is_open())
+        {
+            for (auto i : adjList)
+            {
+                // Функция для печати всех соседних вершин данной вершины
+                for (auto v = i.second.begin(); v != i.second.end(); ++v) {
+                    out << i.first << " -> " << (*v).first << "(" << (*v).second << ")  ";
+                }
+                out << endl;
+            }
+        }
+        return true;
+    }
+
+
+    bool load_from_file(string path) {
+        ifstream in(path);  
+        Type1 a, b;
+        Type2 w;
+        if (in.is_open())
+        {
+            while(in >> a >> b >> w)
+                adjList[a].push_back(make_pair(b, w));
+        }
+        in.close();
+        return true;
+    }
 };
 
 template<typename Type1, typename Type2>
@@ -323,7 +480,7 @@ int main()
     cout << "Есть ли петля у graph6 в 1 узле: " << graph6.loop(1) << endl << endl;
 
 
-    graph6.insert_node(1,1,1);
+    graph6.insert_node(1,1,0);
     cout << "graph6: После добавления вершины" << endl;
     printGraph(graph6);
     cout << endl;
@@ -338,6 +495,61 @@ int main()
     printGraph(graph6);
     cout << endl;
 
+    graph6.insert_edge(1, 0, 2);
+    cout << "graph6: После добавления ребра 1 -> 0(2) insert_edge " << endl;
+    printGraph(graph6);
+    cout << endl;
+
+    graph6.insert_or_assign_edge(1, 0, 2);
+    cout << "graph6: После добавления ребра 1 -> 0(2) insert_or_assign_edge " << endl;
+    printGraph(graph6);
+    cout << endl;
+
+    graph6.clear_edges();
+    cout << "graph6: После удаления всех ребер " << endl;
+    printGraph(graph6);
+    cout << endl;
+
+    graph6.erase_edges_go_from(1);
+    cout << "graph6: После удаления всех ребер выходящих из 1 " << endl;
+    printGraph(graph6);
+    cout << endl;
+
+    graph6.erase_edges_go_from(10);
+    cout << "graph6: После удаления всех ребер выходящих из 10 " << endl;
+    printGraph(graph6);
+    cout << endl;
+
+
+    cout << "graph5:" << endl;
+    printGraph(graph5);
+    cout << endl;
+
+    graph5.erase_edges_go_to(5);
+    cout << "graph5: После удаления всех ребер входящих в 5 " << endl;
+    printGraph(graph5);
+    cout << endl;
+
+    graph5.erase_edges_go_to(1);
+    cout << "graph5: После удаления всех ребер входящих в 1 " << endl;
+    printGraph(graph5);
+    cout << endl;
+
+    
+    graph5.erase_node(2);
+    cout << "graph5: Удаление вершины 2 " << endl;
+    printGraph(graph5);
+    cout << endl;
+
+    graph5.save_to_file("to.txt");
+    cout << "graph5: Печать в файл " << endl;
+    printGraph(graph5);
+    cout << endl;
+ 
+    graph5.load_from_file("from.txt");
+    cout << "graph5: Считывание из файла " << endl;
+    printGraph(graph5);
+    cout << endl;
 
 
     list<Edge<int, double>> edges1 =
@@ -363,11 +575,6 @@ int main()
     cout << "graph4: дробные вершины" << endl;
     printGraph(graph4);
     cout << endl;
-
-
-
-
-
 
     return 0;
 }
